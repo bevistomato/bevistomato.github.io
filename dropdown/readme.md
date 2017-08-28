@@ -38,7 +38,8 @@ BUG频繁出现，最根本的原因就是代码的逻辑并不完备。如何�
  1  |  X     | N    | Text.blur                                       |        | 0    | Null   | M    | 控件失焦，退出输入状态，求I和C的交集，作为最终选词
  
  
- ## 四、构造候选词
+
+## 四、构造候选词
  
  经过状态转移之后，产生的新集合I，检查C中的每一个词语str，只要集合I中的任何一个元素是str的子串，则str就是可能的候选词。如果str和I中的某一个元素完全一样，那么str就是一个选中的词语。
  
@@ -146,3 +147,5 @@ function findCandidate(origalData, selectedData, offset, isSelected) {
 }
 ```
 
+### 部分源码
+[JS源码](chosen.js)
