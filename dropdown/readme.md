@@ -34,11 +34,11 @@ BUG频繁出现，最根本的原因就是代码的逻辑并不完备。如何�
  0  |  Null  | N    | Text.focus                                      |       | 1    |  Y    | N    | 激活控件进入输入状态，
  1  |  X     | N    | Text.click                                      |       | 1    |  Y    | N    | 更改光标位置，变更编辑词
  1  |  X     | N    | List.click, T ∈ I                              |       |  1   |   Y   | N - 1 | 去掉输入词中包含的T
-    |        |      | List.click,T∉I,X≠T,X∈C                         |       |  1   |  X    | N+1   | I集合中新增一个词T
-    |        |      | List.click,T∉I,X≠T,X∉C                          |       | 1    | T     | N     | I集合中将X替换成T
-    |        |      | Text.Input                                      |       |  1   |  Y     | N     | 词语X变更成新的词语Y
-    |        |      | Text.input 分隔符（，、）                        |       |  1   |  Y     | N+1   | 输入分隔符，新增加一个词语
- 1  |   X    | N    | Text.blur                                       |        | 0    | Null   | M    | 控件失焦，退出输入状态，求I和C的交集，作为最终选词
+ 1  |  X     | N    | List.click,T∉I,X≠T,X∈C                         |       |  1   |  X    | N+1   | I集合中新增一个词T
+ 1  |  X     | N    | List.click,T∉I,X≠T,X∉C                          |       | 1    | T     | N     | I集合中将X替换成T
+ 1  |  X     | N    | Text.Input                                      |       |  1   |  Y     | N     | 词语X变更成新的词语Y
+ 1  |  X     | N    | Text.input 分隔符（，、）                        |       |  1   |  Y     | N+1   | 输入分隔符，新增加一个词语
+ 1  |  X     | N    | Text.blur                                       |        | 0    | Null   | M    | 控件失焦，退出输入状态，求I和C的交集，作为最终选词
  
  ## 四、构造候选词
  经过状态转移之后，产生的新集合I，检查C中的每一个词语str，只要集合I中的任何一个元素是str的子串，则str就是可能的候选词。如果str和I中的某一个元素完全一样，那么str就是一个选中的词语。
@@ -100,9 +100,10 @@ $(obj).on('input', 'input', function(){
     var data = $(this).val();
     findCandidate(data, null, inputOffset, false);
 });
-
+```
 
 ###寻找候选词
+```javascript
 function findCandidate(origalData, selectedData, offset, isSelected) {
     // 构造集合I
     var list = dataSplite(origalData, selectedData, offset, isSelected);
