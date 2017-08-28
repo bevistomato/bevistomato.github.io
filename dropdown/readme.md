@@ -1,4 +1,4 @@
-# 在背后不可忽略的逻辑——DIY单选多选框
+# 记录开发DIY单选多选框背后的逻辑
 
 最近在工程中前端的同事编码时遇到的一些问题“实现的控件样式好看，但是实际体验不好，显示效果常出现意料之外的情况，BUG频出”。这帮助他修bug的同时也促使我最近一直在思考一个问题，作为一个HTML工程师，要实现一些DIY控件，很多时候重心都放在让控件样式优美这类可以直观感受的指标上，隐藏在背后的指标很容易就被忽略——封闭而完备的状态转移逻辑。
 
@@ -37,7 +37,9 @@ BUG频繁出现，最根本的原因就是代码的逻辑并不完备。如何�
  1  |  X     | N    | Text.input 分隔符（，、）                        |       |  1   |  Y     | N+1   | 输入分隔符，新增加一个词语
  1  |  X     | N    | Text.blur                                       |        | 0    | Null   | M    | 控件失焦，退出输入状态，求I和C的交集，作为最终选词
  
+ 
  ## 四、构造候选词
+ 
  经过状态转移之后，产生的新集合I，检查C中的每一个词语str，只要集合I中的任何一个元素是str的子串，则str就是可能的候选词。如果str和I中的某一个元素完全一样，那么str就是一个选中的词语。
  
  
@@ -100,6 +102,7 @@ $(obj).on('input', 'input', function(){
 ```
 
 ### 寻找候选词
+
 ```javascript
 function findCandidate(origalData, selectedData, offset, isSelected) {
     // 构造集合I
@@ -141,5 +144,5 @@ function findCandidate(origalData, selectedData, offset, isSelected) {
     renderCandidate(candidate);
     renderShow(show);
 }
-
+```
 
