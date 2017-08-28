@@ -1,7 +1,6 @@
 
 /**
 * 表格下拉列表
-* @author yzh
 */
 $.fn.extend({
     chosen: function(options){
