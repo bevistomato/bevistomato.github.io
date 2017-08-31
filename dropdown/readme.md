@@ -37,12 +37,17 @@ BUG频繁出现，最根本的原因就是代码的逻辑并不完备。如何�
  1  |  X     | N    | Text.input 分隔符（，、）                        |       |  1   |  Y     | N+1   | 输入分隔符，新增加一个词语
  1  |  X     | N    | Text.blur                                       |        | 0    | Null   | M    | 控件失焦，退出输入状态，求I和C的交集，作为最终选词
  
- 
+
 
 ## 四、构造候选词
  
  经过状态转移之后，产生的新集合I，检查C中的每一个词语str，只要集合I中的任何一个元素是str的子串，则str就是可能的候选词。如果str和I中的某一个元素完全一样，那么str就是一个选中的词语。
  
+## 五、一些特殊情况的处理
+
+1、为了能实时的获得已选择的词语，每一次选词发生变化都需要即时更新选择的词语并且触发change事件
+2、禁用输入（搜索）的情况。当text框被设定为readonly时，也就变成一个最原始的选择框，此时，不论输入内容是什么，都应该显示所有的候选词。
+3、当所有输入词语都是选择的词语，那么候选词可以显示直接显示全部内容，方便选择下一个词语。
  
 ## 五、代码
 
@@ -50,102 +55,181 @@ BUG频繁出现，最根本的原因就是代码的逻辑并不完备。如何�
 从状态转移分析，需要click事件和focus事件
 
 ```javascript
-// 获得焦点
-tmpInput.focus(function() {
-    // 获取输入框的值
-    var data = $(this).val();
-    // 获取当前光标位置，用来分析正在编辑的词
-    inputOffset = this.selectionStart;
-    // 寻找候选词
-    findCandidate(data, null, inputOffset, false);
+// 事件绑定
+$(obj).on('click','.select-icon', function(event){
+    clearTimeout(TimeOn);
+    tmpInput.focus();
+});
+
+
+$(obj).on('click','.drop-down-li',function(event) { 
+    var text = $(this).attr('data-name');             
+    var data = tmpInput.val();
+    var list = process(data, text, inputOffset);
+    renderCandidate(list.candidate);
+    renderShow(list.list);
+    if (isMulti) {
+        clearTimeout(TimeOn);
+        tmpInput.trigger('focus');
+    }
+    event.stopPropagation();
+});
+
+
+$(obj).on('input', 'input', function(){
+    inputOffset = this.selectionStart;
+    var data = $(this).val();
+    var list = process(data, null, inputOffset);
+    renderCandidate(list.candidate);
+    renderShow(list.list);
 });
 
 // 失去焦点
-// 因为点击list的候选词，也会导致失去焦点
-// 因此，设定一个延时，如果在延时内点击了list，那么就不执行失去焦点的处理逻辑
 tmpInput.blur(function(){ 
     TimeOn = setTimeout(function(){realBlur();}, 400);       
 });
 
+// 获得焦点
+tmpInput.focus(function() {
+    // 在非编辑状态下，不起用搜索功能
+    if($(this).attr("readonly") == true) {
+        $(obj).find('.select-icon').focus();
+    }
+    // TODO：显示备选框
+    var data = $(this).val();
+    inputOffset = this.selectionStart;
+    var list = process(data, null, inputOffset);
 
+    // TODO: 渲染
+    renderConfig();
+    renderCandidate(list.candidate);
+    renderShow(list.list);
 
-
-// 绑定list的点击事件
-$(obj).on('click','.drop-down-li',function(event) { 
-    // 停止执行失焦事件相关逻辑
-    clearTimeout(TimeOn);
-    // 获取候选次T
-    var text = $(this).attr('data-name');             
-    // 获取已输入内容，切分后就是I
-    var data = tmpInput.val();
-    // 检查I中是否存在T，如果存在就将I中的T去掉
-    var isSelected = true;
-    if($(this).find('.checkbox-style').hasClass('active')){
-        isSelected = false;
-        data = dataRemove(data, text);
-        text = null;
-    } 
-    // 寻找候选词
-    findCandidate(data, text, inputOffset, isSelected);
-    event.stopPropagation();
-    // 保持输入框的焦点
-    tmpInput.trigger('focus');
 });
+```
 
-// 输入框内容改变
-$(obj).on('input', 'input', function(){
-    // 记录光标所在位置
-    inputOffset = this.selectionStart;
-    // 获取已输入内容
-    var data = $(this).val();
-    findCandidate(data, null, inputOffset, false);
-});
+
+
+
+### 构造输入框和候选框的解
+
+```javascript
+function process(originalData, selectedWord, offset) {
+    var list = getWordList(originalData, offset);
+    list = getWordStatus(list);
+    list = removeSelectedWord(list, selectedWord);
+    var candidate = getCandidate(list);
+    return {list: list, candidate: candidate};
+}
+```
+
+### 将输入字串构造成输入集合I
+单选整个输入内容就是唯一元素
+多选则根据分隔符，进行划分
+划分后确定当前正在编辑的词X
+
+```javascript
+function getWordList(s, offset) {
+    var list = [s];
+    if (isMulti) {
+        list = s.split(/[,，、]/);
+    }
+    var ret = [];
+    var len = 0;
+    for (var i in list) {
+        var tmp = {};
+        tmp.data = list[i];
+        tmp.editing = false;
+        if (!isMulti || (len <= offset && len + list[i].length >= offset)) {
+            tmp.editing = true;
+        }
+        ret.push(tmp);
+        len += list[i].length;
+        len++;
+    }
+    return ret;
+}
+```
+
+### 填充I中每个元素的属性
+1、是否是已经选择的词语
+2、有多少候选词包含当前输入词语（如果已经选择，但是候选词不止一个，例如输入AB，候选词AB，ABC都有可能，就要考虑用户可能继续输入C这一情况）
+
+```javascript
+function getWordStatus(list) {
+    var ret = [];
+    for (var i in list) {
+        list[i].selected = false;
+        list[i].id = -1;
+        list[i].cnt = 0;
+        for (var j in listSet) {
+            var ret = targetCmp(list[i].data, listSet[j].name);
+            if (ret == 2) {
+                list[i].id = listSet[j].id;
+                list[i].selected = true;
+            }
+            if (ret > 0) list[i].cnt++;
+        }
+    }
+    return list;
+}
+```
+
+### 去掉输入框中，已选择的词语
+当点击候选词的时候，如果本身已经选择过这个词语，就需要去掉当前选择
+
+```javascript
+function removeSelectedWord(list, word) {
+    if (word == null) return list;
+    var ret = [];
+    var found = false;
+    var target = {};
+    target.data = word;
+    target.selected = true;
+    target.editing = false;
+    target.discard = false;
+    for(var i in list) {
+        list[i].discard = false;
+        if (list[i].data == word) {
+            found = true;
+            list[i].discard = true;
+        }
+    }
+    for(var i in list) {
+        if (list[i].discard) continue;
+        if (list[i].editing && !found) {
+            if (list[i].selected) ret.push(list[i]);
+            ret.push(target);
+            continue;
+        }
+        ret.push(list[i]);
+    }
+
+    return ret;
+}
 ```
 
 ### 寻找候选词
+寻找候选词的时候，如果所有输入词语都是已选择的词语，就会显示所有候选词
 
 ```javascript
-function findCandidate(origalData, selectedData, offset, isSelected) {
-    // 构造集合I
-    var list = dataSplite(origalData, selectedData, offset, isSelected);
+function getCandidate(list) {
     var candidate = [];
-    var show = [];
-    
-    // 遍历集合C
-    for (var i in listSet) {
+    var allSelected = checkAllSelected(list);
+    for (var i in listSet) {
         var f = 0;
-        // 和I中的元素进行比较
-        // f = 0 表示 不是候选词
-        // f = 1 表示 是 候选词
-        // f = 2 表示 是 选中的词语
-        for (var j in list) {
+        for (var j in list) {
             var ret = targetCmp(list[j].data, listSet[i].name);
-            if (ret == 1 && list[j].discard) continue;
             if (ret > f) f = ret;
         }
-        if (f > 0) {
+        if (f > 0 || allSelected) {
             candidate.push({id:listSet[i].id, name:listSet[i].name, flag: f});
         }
     }
-    // 自动修正输入框中的文字
-    for (var j in list) {
-        // list[j].discard表示是正在编辑的词语，此时，选定的词语T一定在list[j+1]
-        // 如果list[j]！= T，那么这个正在编辑的词语要就被T替换掉，不再显示
-        if (!list[j].discard) {
-            show.push(list[j].data);
-        } else if (isMulti) for (var i in listSet) {
-            var ret = targetCmp(list[j].data, listSet[i].name);
-            if (ret == 2) {
-                show.push(list[j].data);
-                break;
-            }
-        }
-    }
-    // TODO: 渲染
-    renderCandidate(candidate);
-    renderShow(show);
+    return candidate;
 }
 ```
+
 
 ### 部分源码
 [JS源码](chosen.js)
