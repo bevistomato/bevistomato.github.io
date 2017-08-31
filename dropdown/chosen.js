@@ -23,12 +23,13 @@ var Chosen =(function(){
         var tmpInput = $(obj).find('input');
         var tmpObj = $(obj).find('.search-drop-down-menu');
         var tmpIcon = $(obj).find('.select-icon');
-        var listSet = [];//存储所有li的id和name
         
+        var listSet = [];//存储所有li的id和name
         var outerDiv = '';
         var inputOffset = 0;
         var isMulti = false;
         var showSet = [];
+        var TimeOn = null;
         
         // 参数设置方法
         this.options = function (op) {
@@ -91,29 +92,33 @@ var Chosen =(function(){
         
         // 事件绑定
         $(obj).on('click','.select-icon', function(event){
-            tmpInput.trigger('focus');
+            clearTimeout(TimeOn);
+            tmpInput.focus();
         });
         
+        
         $(obj).on('click','.drop-down-li',function(event) { 
-            clearTimeout(TimeOn);
+            
             var text = $(this).attr('data-name');             
             var data = tmpInput.val();
-            var isSelected = true;
-            if($(this).find('.checkbox-style').hasClass('active')){
-                isSelected = false;
-                data = dataRemove(data, text);
-                text = null;
-            } 
-            findCandidate(data, text, inputOffset, isSelected);
+            var list = process(data, text, inputOffset);
+            renderCandidate(list.candidate);
+            renderShow(list.list);
+            if (isMulti) {
+                clearTimeout(TimeOn);
+                tmpInput.trigger('focus');
+            }
             event.stopPropagation();
-            tmpInput.trigger('focus');
+            
         });
         
         
         $(obj).on('input', 'input', function(){
             inputOffset = this.selectionStart;
             var data = $(this).val();
-            findCandidate(data, null, inputOffset, false);
+            var list = process(data, null, inputOffset);
+            renderCandidate(list.candidate);
+            renderShow(list.list);
         });
         
         
@@ -125,69 +130,56 @@ var Chosen =(function(){
         
         // 获得焦点
         tmpInput.focus(function() {
+            // 在非编辑状态下，不起用搜索功能
+            if($(this).attr("readonly") == true) {
+                $(obj).find('.select-icon').focus();
+            }
             // TODO：显示备选框
             var data = $(this).val();
             inputOffset = this.selectionStart;
-            findCandidate(data, null, inputOffset, false);
+            var list = process(data, null, inputOffset);
+                        
+            // TODO: 渲染
             renderConfig();
+            renderCandidate(list.candidate);
+            renderShow(list.list);
+            
         });
         
         function realBlur() {
             tmpObj.hide();
             var data = tmpInput.val();
-            var list = dataSplite(data, null, 0, false);
-            var selected = [];
+            var list = process(data, null, inputOffset);
             var show = [];
-            var isAll = false;
-            for (var i in listSet) {
-                for (var j in list) {
-                    var ret = targetCmp(list[j].data, listSet[i].name);
-                    if (ret == 2) {
-                        selected.push(listSet[i].id);
-                        show.push(listSet[i].name);
-                        if (!isMulti) isAll = true;
-                        break;
-                    }
-                }
-                if (isAll) break;
+            for (var i in list.list) {
+                if (list.list[i].selected) show.push(list.list[i]);
             }
-            // TODO: 构造结果
-            buildSelection(selected);
+            // TODO: 最终渲染结果
             renderShow(show);
         }
         
-        function buildSelection(data) {
-            if (isMulti == true) {
-                tmpInput.attr('data-id', JSON.stringify(data));
-            } else {
+        function buildSelection(list) {
+            var data = [];
+            for (var i in list) {
+                if (list[i].selected) data.push(list[i].id);
+            }
+            
+            target = JSON.stringify(data);
+            if (!isMulti) {
                 for (var i in data) {
-                    tmpInput.attr('data-id', data[i]);
+                    target = data[i];
                     break;
                 }
             }
             
+            var old = tmpInput.attr('data-id');
+            if (old != target) {
+                tmpInput.trigger('change');
+            }
+            tmpInput.attr('data-id', target);
         }
         
-        function dataRemove(a, b) {
-            var list = [a];
-            var ret = "";
-            var first = true;
-            if (isMulti) {
-                list = a.split(/[,，、]/);
-            }
-            console.log(list, b);
-            for (var i in list) {
-                var t = targetCmp(list[i], b);
-                if (t != 2) {
-                    if (!first) ret += ",";
-                    ret += list[i];
-                    first = false;
-                }
-            }
-            return ret;
-        }
-        
-        function dataSplite(s, t, offset, isSelected) {
+        function getWordList(s, offset) {
             var list = [s];
             if (isMulti) {
                 list = s.split(/[,，、]/);
@@ -197,54 +189,101 @@ var Chosen =(function(){
             for (var i in list) {
                 var tmp = {};
                 tmp.data = list[i];
-                if (t && isSelected) {
-                    if (!isMulti || (len <= offset && len + list[i].length >= offset)) {
-                        tmp.discard = 1;
-                    }
+                tmp.editing = false;
+                if (!isMulti || (len <= offset && len + list[i].length >= offset)) {
+                    tmp.editing = true;
                 }
-                
-                if (isSelected || list[i] != t) {
-                    ret.push(tmp);
-                }
-                if (isSelected && len <= offset && len + list[i].length >= offset) {
-                    ret.push({data:t});
-                }
+                ret.push(tmp);
                 len += list[i].length;
                 len++;
             }
             return ret;
         }
         
-        function findCandidate(origalData, selectedData, offset, isSelected) {
-            console.log(origalData, selectedData, offset, isSelected);
-            var list = dataSplite(origalData, selectedData, offset, isSelected);
+        function removeSelectedWord(list, word) {
+            if (word == null) return list;
+            var ret = [];
+            var found = false;
+            var target = {};
+            target.data = word;
+            target.selected = true;
+            target.editing = false;
+            target.discard = false;
+            for(var i in list) {
+                list[i].discard = false;
+                if (list[i].data == word) {
+                    found = true;
+                    list[i].discard = true;
+                }
+            }
+            for(var i in list) {
+                if (list[i].discard) continue;
+                if (list[i].editing && !found) {
+                    if (list[i].selected) ret.push(list[i]);
+                    ret.push(target);
+                    continue;
+                }
+                ret.push(list[i]);
+            }
+            
+            return ret;
+        }
+        
+        function checkAllSelected(list) {
+            var ret = true;
+            for (var i in list) {
+                if (!list[i].selected || list[i].cnt > 1) {
+                    ret = false;
+                    break;
+                }
+            }
+            return ret;
+        }
+        
+        function process(originalData, selectedWord, offset) {
+            console.log(originalData, selectedWord, offset);
+            var list = getWordList(originalData, offset);
+            list = getWordStatus(list);
+            list = removeSelectedWord(list, selectedWord);
+            var candidate = getCandidate(list);
+            console.log(list, candidate);
+            return {list: list, candidate: candidate};
+            
+        }
+        
+        
+        function getWordStatus(list) {
+            var ret = [];
+            for (var i in list) {
+                list[i].selected = false;
+                list[i].id = -1;
+                list[i].cnt = 0;
+                for (var j in listSet) {
+                    var ret = targetCmp(list[i].data, listSet[j].name);
+                    if (ret == 2) {
+                        list[i].id = listSet[j].id;
+                        list[i].selected = true;
+                    }
+                    if (ret > 0) list[i].cnt++;
+                }
+            }
+            return list;
+        }
+        
+        function getCandidate(list) {
             var candidate = [];
-            var show = [];
+            var allSelected = checkAllSelected(list);
             for (var i in listSet) {
                 var f = 0;
                 for (var j in list) {
                     var ret = targetCmp(list[j].data, listSet[i].name);
-                    if (ret == 1 && list[j].discard) continue;
                     if (ret > f) f = ret;
                 }
-                if (f > 0) {
+                if (f > 0 || allSelected) {
                     candidate.push({id:listSet[i].id, name:listSet[i].name, flag: f});
                 }
             }
-            for (var j in list) {
-                if (!list[j].discard) {
-                    show.push(list[j].data);
-                } else if (isMulti) for (var i in listSet) {
-                    var ret = targetCmp(list[j].data, listSet[i].name);
-                    if (ret == 2) {
-                        show.push(list[j].data);
-                        break;
-                    }
-                }
-            }
-            // TODO: 渲染
-            renderCandidate(candidate);
-            renderShow(show);
+            return candidate;
         }
         
         function renderCandidate(data) {
@@ -263,17 +302,26 @@ var Chosen =(function(){
         }
         
         function renderShow(data) {
-            var tm = "";
-            var first = true;
+            var list = [];
             for (var i in data) {
-                if (!first)
-                    tm += ",";
-                tm += data[i];
-                first = false;
+                if (!isMulti) list = [];
+                list.push(data[i]);
+            }
+            var word = "";
+            var last = null;
+            for (var i in list) {
+                if (last != null)
+                    word += ",";
+                word += list[i].data;
+                last = list[i];
             }
             var t = tmpInput.val();
-            if (t != tm) 
-                tmpInput.val(tm);
+            if (t != word) {
+                tmpInput.val(word);
+            }
+            
+            // 构造选择项
+            buildSelection(list);
         }
         
         function renderConfig() {
@@ -304,6 +352,7 @@ var Chosen =(function(){
         
         
         setOptions(options);
+        
         $(obj).show();
     }
     
