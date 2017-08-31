@@ -124,16 +124,13 @@ var Chosen =(function(){
         
         
         // 失去焦点
-        tmpInput.blur(function(){ 
+        tmpInput.blur(function(){
+            inputOffset = this.selectionStart;
             TimeOn = setTimeout(function(){realBlur();}, 400);       
         });
         
         // 获得焦点
         tmpInput.focus(function() {
-            // 在非编辑状态下，不起用搜索功能
-            if($(this).attr("readonly") == true) {
-                $(obj).find('.select-icon').focus();
-            }
             // TODO：显示备选框
             var data = $(this).val();
             inputOffset = this.selectionStart;
@@ -241,12 +238,10 @@ var Chosen =(function(){
         }
         
         function process(originalData, selectedWord, offset) {
-            console.log(originalData, selectedWord, offset);
             var list = getWordList(originalData, offset);
             list = getWordStatus(list);
             list = removeSelectedWord(list, selectedWord);
             var candidate = getCandidate(list);
-            console.log(list, candidate);
             return {list: list, candidate: candidate};
             
         }
