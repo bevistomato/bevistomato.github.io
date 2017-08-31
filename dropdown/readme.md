@@ -86,6 +86,7 @@ $(obj).on('input', 'input', function(){
 
 // 失去焦点
 tmpInput.blur(function(){ 
+    inputOffset = this.selectionStart;
     TimeOn = setTimeout(function(){realBlur();}, 400);       
 });
 
