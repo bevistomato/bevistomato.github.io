@@ -157,23 +157,26 @@ var Chosen =(function(){
         
         function buildSelection(list) {
             var data = [];
+            var target = ""; 
             for (var i in list) {
                 if (list[i].selected) data.push(list[i].id);
             }
             
-            target = JSON.stringify(data);
             if (!isMulti) {
                 for (var i in data) {
                     target = data[i];
                     break;
                 }
+            } else {
+                target = JSON.stringify(data);
             }
             
+            
             var old = tmpInput.attr('data-id');
+            tmpInput.attr('data-id', target);
             if (old != target) {
                 tmpInput.trigger('change');
             }
-            tmpInput.attr('data-id', target);
         }
         
         function getWordList(s, offset) {
@@ -209,6 +212,14 @@ var Chosen =(function(){
             target.selected = true;
             target.editing = false;
             target.discard = false;
+            target.cnt = 1;
+            for (var j in listSet) {
+                var ret = targetCmp(word, listSet[j].name);
+                if (ret == 2) {
+                    target.id = listSet[j].id;
+                    break;
+                }
+            }
             if (!isMulti) {
                 return [target];
             }
