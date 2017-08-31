@@ -198,6 +198,9 @@ var Chosen =(function(){
         }
         
         function removeSelectedWord(list, word) {
+            for(var i in list) {
+                list[i].discard = false;
+            }
             if (word == null) return list;
             var ret = [];
             var found = false;
@@ -206,12 +209,12 @@ var Chosen =(function(){
             target.selected = true;
             target.editing = false;
             target.discard = false;
-            for(var i in list) {
-                list[i].discard = false;
-                if (list[i].data == word) {
-                    found = true;
-                    list[i].discard = true;
-                }
+            if (!isMulti) {
+                return [target];
+            }
+            for(var i in list) if (list[i].data == word) {
+                found = true;
+                list[i].discard = true;
             }
             for(var i in list) {
                 if (list[i].discard) continue;
