@@ -91,10 +91,6 @@ tmpInput.blur(function(){
 
 // 获得焦点
 tmpInput.focus(function() {
-    // 在非编辑状态下，不起用搜索功能
-    if($(this).attr("readonly") == true) {
-        $(obj).find('.select-icon').focus();
-    }
     // TODO：显示备选框
     var data = $(this).val();
     inputOffset = this.selectionStart;
